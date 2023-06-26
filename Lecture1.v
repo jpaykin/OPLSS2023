@@ -558,7 +558,6 @@ Module le.
           le n1 n2 ->
           le n2 n3 ->
           le n1 n3.
-    (* WORKED IN CLASS *)
     Proof.
       (* To prove this lemma, we want to do induction on the relation [le n1 n2] itself.
          However, we don't quite have the right form to apply le_ind directly.

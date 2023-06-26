@@ -4,7 +4,7 @@
 
 Coq consists of a
     dependently-typed
-    functional programming langauge
+    functional programming langauge (Gallina)
 as well as an
     interactive therorem prover.
 *)
@@ -12,7 +12,6 @@ as well as an
 (* ================================================================= *)
 (** ** A functional programming langauge *)
 
-Require Import Coq.Program.Equality.
 
 Module Nat.
     (** Unary natural numbers are either
@@ -23,26 +22,18 @@ Module Nat.
     | O : nat 
     | S (n : nat) : nat.
 
-    (** Let's look at this in a little more detail.
-
-        An [Inductive] definition does two things:
-
-        - It defines a set of new _constructors_, e.g., [O] and
-          [S] are constructors.
-
-        - It groups them into a new named type, e.g. [nat].
-
-        _Constructor expressions_ are formed by applying a constructor
-        to zero or more other constructors or constructor expressions,
-        obeying the declared number and types of the constructor arguments.
-        E.g., [S (S O)]
-    *)
-
-    (** We can check the types of terms we have defined, or print out definitions,
-        using the [Check] and [Print] commands. *)
+    (** We can check the types of terms we have defined, or print out
+        definitions, using the [Check] and [Print] commands. *)
     Check nat. (* : Set *)
     Check S. (* : nat -> nat *)
     Print nat.
+
+
+
+
+
+
+
 
     (** We can define functions over natural numbers by case analysis. *)
     Definition pred (n : nat) : nat :=
@@ -50,6 +41,16 @@ Module Nat.
         | O => O
         | S n' => n'
         end.
+
+
+
+
+
+
+
+
+
+
 
     (** We can define recursive functions using [Fixpoint]. *)
     Fixpoint plus (n1 n2 : nat) : nat :=
@@ -65,16 +66,14 @@ Module Nat.
     (** You can evaluate tests using [Compute]. *)
     Compute (S (S O) + S O). (* 2 + 1 = 3 *)
 
-    (** Critical point: this just defines a _representation_ of
-        numbers -- a unary notation for writing them down.
-
-        The names [O] and [S] are arbitrary. They are just two different
-        "marks", with no intrinsic meaning.
-
-        We could just as well represent numbers with different marks. *)
-
     
 End Nat.
+
+
+
+
+
+
 
 (** For the rest of the course we will use standard library natural numbers,
     which are defined the same way, but come with decimal notation;
@@ -85,13 +84,15 @@ Compute (pred 3). (* ==> 2 *)
 
     
 
-    
+
 (* ################################################################# *)
 (** * Lists. *)
 Module List.
     Inductive list (A : Type) : Type :=
     | nil : list A
     | cons : A -> list A -> list A.
+    Check nil.
+    Check cons.
 
     Definition natlist1 := cons nat 3 (cons nat 4 (nil nat)).
     (** The type arguments can be quite annoying, but luckily they are unnecessary,
@@ -115,6 +116,12 @@ Module List.
     Definition natlist5 := 3::4::[].
     Definition natlist6 := [3;4].
 
+
+
+
+
+
+
     (** Append and length are very important functions. *)
   
     Fixpoint app {X : Type} (l1 l2 : list X) : list X :=
@@ -129,6 +136,9 @@ Module List.
       | cons _ l' => S (length l')
       end.
 
+
+
+
     (** We can of course write higher-order functions like [map]. *)
     Fixpoint map {A B : Type} (f : A -> B) (l : list A) : list B :=
         match l with
@@ -141,10 +151,25 @@ Module List.
       (* = [0; 1; 2; 3] *)
 End List.
 
+
+
+
+
+
+
+
+
 (** We will use standard library lists for the rest of the course. *)
 Require Import List.
 Import ListNotations.
 Open Scope list_scope.
+
+
+
+
+
+
+
 
 
 
@@ -158,23 +183,45 @@ Open Scope list_scope.
     Inductive Vec (A : Type) : nat -> Type :=
     | vnil : Vec A 0
     | vcons {n : nat} (a : A) (v : Vec A n) : Vec A (S n).
+
+
+
+
+
+
+
+
+
+
+
     Check vnil. (* forall A, Vec A 0 *)
-    Check vcons. (* forall A n, A -> Vec A n -> Vec A (S n) *)
+    Check vcons. (* forall (A : Type) (n : nat), A -> Vec A n -> Vec A (S n) *)
 
     (* Make these arguments implicit. *)
     Arguments vnil {A}.
     Arguments vcons {A n}.
 
+
+
+
+
+
+
     Fixpoint vappend {A : Type} {n1 n2 : nat}
                      (ls1 : Vec A n1) (ls2 : Vec A n2) : Vec A (n1 + n2) :=
         match ls1 with
-        | vnil => (* n1=0, n1 + n2 = n2 *)
-          ls2
-        | vcons a ls1' => (* n1 = S n1', n1 + n2 = S (n1' + n2) *)
-          vcons a (vappend ls1' ls2)
+        
+        | vnil => _
+
+
+        | vcons a ls1' => 
         end.
     
     Compute (vappend (vcons 3 vnil) (vcons 5 (vcons 4 vnil))).
+
+
+
+
     
 
     Fixpoint to_list {A : Type} {n : nat}
@@ -184,6 +231,16 @@ Open Scope list_scope.
         | vnil => nil
         | vcons a ls' => cons a (to_list ls')
         end.
+
+
+
+
+
+
+
+
+
+
 
     
     (** ** Propositions as types
@@ -198,10 +255,26 @@ Open Scope list_scope.
     Inductive foo {A : Type} : A -> A -> Type :=
     | foo_same (a : A) : foo a a.
 
+
+
+
+
+
+
+
+
+
+
     (** Since the only term of type [foo a b] is a constructor [foo_same a],
         the existance of that term is a _proof_ that [a=b]. *)
 
     Definition foo_2_plus_1 : foo (2+1) 3 := foo_same 3.
+
+
+
+
+
+
 
     Definition foo_commutativity {A : Set} (a b : A) (pf : foo a b) : foo b a :=
       match pf with
@@ -215,19 +288,15 @@ Open Scope list_scope.
     Fixpoint to_list_length {A : Type} {n : nat} (ls : Vec A n)
              : length (to_list ls) = n :=
     match ls with
-    | vnil => (* n = 0, to_list ls = nil *) eq_refl
+    | vnil =>
     | vcons a ls' =>
-      (* n = S n' *)
-      (* to_list ls = a :: to_list ls' *)
-      (* to_list_length ls' : eq (length (to_list ls')) n' *)
-      (* WTS: eq (length (to_list (vcons a ls'))) (S n')
-                (length (cons a ls'))            (S n')
-                (S (length ls'))                 (S n')
-      *)
-      match to_list_length ls' with
-      | eq_refl _ => eq_refl _
-      end
     end.
+
+
+
+
+
+
     
     (** What a hassle! But there is a better way--tactics! *)
     Definition to_list_length' : forall (A : Type) (n : nat) (ls : Vec A n),
@@ -244,7 +313,14 @@ Open Scope list_scope.
 
     (** Underneath, this is still a term of the given type. *)
     Print to_list_length'.
+
     
+
+
+
+
+
+
     
     (** Another example: similar to vappend.
     
@@ -305,6 +381,16 @@ Open Scope list_scope.
         
         A lot more can be said about universes, but we won't worry about it for now.*)
 
+
+
+
+
+
+
+
+
+
+
 (* ================================================================= *)
 (** ** Inductive predicates *)
 
@@ -317,20 +403,131 @@ Module le.
     | le_O (n : nat) : le O n
     | le_S (m n : nat) : le m n -> le (S m) (S n).
 
+
+
+
+
+    
+
     Lemma le_n_S : forall n, le n (S n).
     (* WORK IN CLASS *) Admitted.
+
+
+
+
+
+
+
 
     Lemma le_asymmetric : forall m n,
           le m n ->
           le n m ->
           m = n.
-    (* WORK IN CLASS *) Admitted.
+    
+    Proof.
+        (* To prove this lemma, we want to do induction on the relation [le n1 n2] itself. *)
+        Check le_ind.
+        (*
+            le_ind
+                : forall P : nat -> nat -> Prop,
+                (forall n : nat, P 0 n) ->
+                (forall m n : nat, le m n -> P m n -> P (S m) (S n)) ->
+                forall n n0 : nat, le n n0 -> P n n0
+            *)
+        set (P := fun m n => le n m -> m = n).
+        change (forall m n, le m n -> P m n).
+        apply le_ind.
+        * (* 0 <= n *)
+            unfold P.
+            intros n Hn0 (* n <= 0 *).
+              (* Now, n <= 0 implies n = 0. Why? Well, because the only terms
+                 of the form [le n O] are those formed by the [le_O] constructor.
+                 This type of reasoning is called _inversion_. *)
+            inversion Hn0.
+              (* If we use the [inversion] tactic on [H], it is sort of like [destruct]---
+                 it will look at all the ways [H] could possibly exist based on its 
+                 type, and deconstruct it. 
+                 If there are multiple ways [H] could have been constructed, it will give us
+                 multiple subgoals. However, in this case there is only one possible
+                 way. *)
+              (* Now we know n = 0, so our goal is trivial. *)
+            reflexivity.
+        * unfold P.
+            intros m n
+                   Hle (* m <= n *)
+                   IH  (* n <= m -> m = n *)
+                   H   (* S n <= S m *).
+              (* Now, S n <= S m implies n <= m. Why? Again, the only terms
+                 of the form [le (S n) (S m)] are those formed by the [le_S] constructor. *)
+            inversion H as [n' | m' n' Hmn'].
+              (* Unfortunately, inversion introduces fresh variables ([m'] and [n'] above)
+                 even though they are equal to our original [m] and [n]. As a result,
+                 we will often use [subst] immediately following [inversion] to eliminate
+                 these extra variables. All [subst] does is look for hypothesis of the form
+                 [x=e] or [e=x] and replace all occurrences of [x] with [e]. *)
+            subst.
+              (* Now [Hmn' : le n m] *)
+            rewrite IH.
+            + reflexivity.
+            + exact Hmn'.
+    Qed.
+
+
+
+
+
+
+
+
+
 
     Lemma le_trans : forall n1 n2 n3,
           le n1 n2 ->
           le n2 n3 ->
           le n1 n3.
-    (* WORK IN CLASS *) Admitted.
+    
+      (* To prove this lemma, we want to do induction on the relation [le n1 n2] itself.
+         However, we don't quite have the right form to apply le_ind directly.
+         Let's do some rearranging to get it into the right form. *)
+      intros n1 n2 n3 H12 H23.
+      generalize dependent n3.
+      revert n1 n2 H12.
+      set (P := fun n1 n2 => forall n3, le n2 n3 -> le n1 n3).
+      change (forall n1 n2, le n1 n2 -> P n1 n2).
+      (* Instead of [apply le_ind], we can introduce the hypothesis and 
+         call [induction] on the hypothesis. *)
+      intros n1 n2 H. unfold P.
+      induction H as [n1 | n1 n2 H12].
+      * intros n3 H13. apply le_O.
+      * intros n3 H23.
+        (* Because S n2 <= n3, it must be the case that [n3=S n3'] such that
+           [n2 <= n3']. *)
+        inversion H23 as [n2' | n2' n3' H23']. subst.
+        apply le_S.
+        (* Now we can apply IHH12, because it's true [forall n3]! *)
+        apply IHH12.
+        exact H23'.
+    Qed.
+
+    (* Now, even though we didn't have to [apply le_ind] directly, it's still
+       useful to think this way because it generates the correct induction
+       hypothesis. For example, we can try to restart without this restructing. *)
+    
+    Lemma le_trans_failure : forall n1 n2 n3,
+       le n1 n2 ->
+       le n2 n3 ->
+       le n1 n3.
+    Proof.
+      intros n1 n2 n3 H12.
+      induction H12 as [n1 | n1 n2 H12'].
+      * intros H13. apply le_O.
+      * intros H23.
+        inversion H23 as [n2' | n2' n3' H23']. (* We expect n3 to be of the form Sn3' *)
+        subst.
+        apply le_S.
+        (* Now we are stuck, because the induction hypothesis is only valid
+           for [S n3'], but we need it for [n3'] itself! *)
+    Abort.
 
 End le.
 
