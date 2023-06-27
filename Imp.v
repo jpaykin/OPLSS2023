@@ -63,19 +63,6 @@ Inductive bexp : Type :=
   | BNot (b : bexp)
   | BAnd (b1 b2 : bexp).
 
-(** In this chapter, we'll mostly elide the translation from the
-    concrete syntax that a programmer would actually write to these
-    abstract syntax trees -- the process that, for example, would
-    translate the string ["1 + 2 * 3"] to the AST
-
-      APlus (ANum 1) (AMult (ANum 2) (ANum 3)).
-
-    The optional chapter [ImpParser] develops a simple lexical
-    analyzer and parser that can perform this translation.  You do not
-    need to understand that chapter to understand this one, but if you
-    haven't already taken a course where these techniques are
-    covered (e.g., a course on compilers) you may want to skim it. *)
-
 (** For comparison, here's a conventional BNF (Backus-Naur Form)
     grammar defining the same abstract syntax:
 
@@ -758,30 +745,6 @@ Inductive aevalR : aexp -> nat -> Prop :=
                          --------------------                         (E_AMult)
                          AMult e1 e2 ==> n1*n2
 *)
-
-(** **** Exercise: 1 star, standard, optional (beval_rules)
-
-    Here, again, is the Coq definition of the [beval] function:
-
-  Fixpoint beval (e : bexp) : bool :=
-    match e with
-    | BTrue       => true
-    | BFalse      => false
-    | BEq a1 a2   => (aeval a1) =? (aeval a2)
-    | BNeq a1 a2  => negb ((aeval a1) =? (aeval a2))
-    | BLe a1 a2   => (aeval a1) <=? (aeval a2)
-    | BGt a1 a2   => ~((aeval a1) <=? (aeval a2))
-    | BNot b      => negb (beval b)
-    | BAnd b1 b2  => andb (beval b1) (beval b2)
-    end.
-
-    Write out a corresponding definition of boolean evaluation as a
-    relation (in inference rule notation). *)
-(* FILL IN HERE *)
-
-(* Do not modify the following line: *)
-Definition manual_grade_for_beval_rules : option (nat*string) := None.
-(** [] *)
 
 (* ================================================================= *)
 (** ** Equivalence of the Definitions *)
@@ -1547,24 +1510,6 @@ Proof.
 Set Printing Implicit.
 Check @ceval_example2.
 
-(** **** Exercise: 3 stars, standard, optional (pup_to_n)
-
-    Write an Imp program that sums the numbers from [1] to [X]
-    (inclusive: [1 + 2 + ... + X]) in the variable [Y].  Your program
-    should update the state as shown in theorem [pup_to_2_ceval],
-    which you can reverse-engineer to discover the program you should
-    write.  The proof of that theorem will be somewhat lengthy. *)
-
-Definition pup_to_n : com
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
-
-Theorem pup_to_2_ceval :
-  (X !-> 2) =[
-    pup_to_n
-  ]=> (X !-> 0 ; Y !-> 3 ; X !-> 1 ; Y !-> 2 ; Y !-> 0 ; X !-> 2).
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
 
 (* ================================================================= *)
 (** ** Determinism of Evaluation *)
@@ -1614,9 +1559,14 @@ Proof.
 (* ################################################################# *)
 (** * Reasoning About Imp Programs *)
 
-(** **** Exercise: 3 stars, standard, especially useful (loop_never_stops) *)
+(** **** Exercise: 3 stars, standard, especially useful (loop_never_stops)
+
+    The proposition ~P is defined to be [P -> False], where [False] is
+a type with no constructors. *)
+Print not.
+
 Theorem loop_never_stops : forall st st',
-  ~(st =[ loop ]=> st').
+  ~ (st =[ loop ]=> st').
 Proof.
   intros st st' contra. unfold loop in contra.
   remember <{ while true do skip end }> as loopdef
@@ -1809,205 +1759,6 @@ Proof.
 
 (** [] *)
 
-(** **** Exercise: 3 stars, standard, optional (short_circuit)
-
-    Most modern programming languages use a "short-circuit" evaluation
-    rule for boolean [and]: to evaluate [BAnd b1 b2], first evaluate
-    [b1].  If it evaluates to [false], then the entire [BAnd]
-    expression evaluates to [false] immediately, without evaluating
-    [b2].  Otherwise, [b2] is evaluated to determine the result of the
-    [BAnd] expression.
-
-    Write an alternate version of [beval] that performs short-circuit
-    evaluation of [BAnd] in this manner, and prove that it is
-    equivalent to [beval].  (N.b. This is only true because expression
-    evaluation in Imp is rather simple.  In a bigger language where
-    evaluating an expression might diverge, the short-circuiting [BAnd]
-    would _not_ be equivalent to the original, since it would make more
-    programs terminate.) *)
-
-(* FILL IN HERE
-
-    [] *)
-
-Module BreakImp.
-(** **** Exercise: 4 stars, advanced (break_imp)
-
-    Imperative languages like C and Java often include a [break] or
-    similar statement for interrupting the execution of loops. In this
-    exercise we consider how to add [break] to Imp.  First, we need to
-    enrich the language of commands with an additional case. *)
-
-Inductive com : Type :=
-  | CSkip
-  | CBreak                        (* <--- NEW *)
-  | CAsgn (x : string) (a : aexp)
-  | CSeq (c1 c2 : com)
-  | CIf (b : bexp) (c1 c2 : com)
-  | CWhile (b : bexp) (c : com).
-
-Notation "'break'" := CBreak (in custom com at level 0).
-Notation "'skip'"  :=
-         CSkip (in custom com at level 0) : com_scope.
-Notation "x := y"  :=
-         (CAsgn x y)
-            (in custom com at level 0, x constr at level 0,
-             y at level 85, no associativity) : com_scope.
-Notation "x ; y" :=
-         (CSeq x y)
-           (in custom com at level 90, right associativity) : com_scope.
-Notation "'if' x 'then' y 'else' z 'end'" :=
-         (CIf x y z)
-           (in custom com at level 89, x at level 99,
-            y at level 99, z at level 99) : com_scope.
-Notation "'while' x 'do' y 'end'" :=
-         (CWhile x y)
-            (in custom com at level 89, x at level 99, y at level 99) : com_scope.
-
-(** Next, we need to define the behavior of [break].  Informally,
-    whenever [break] is executed in a sequence of commands, it stops
-    the execution of that sequence and signals that the innermost
-    enclosing loop should terminate.  (If there aren't any
-    enclosing loops, then the whole program simply terminates.)  The
-    final state should be the same as the one in which the [break]
-    statement was executed.
-
-    One important point is what to do when there are multiple loops
-    enclosing a given [break]. In those cases, [break] should only
-    terminate the _innermost_ loop. Thus, after executing the
-    following...
-
-       X := 0;
-       Y := 1;
-       while 0 <> Y do
-         while true do
-           break
-         end;
-         X := 1;
-         Y := Y - 1
-       end
-
-    ... the value of [X] should be [1], and not [0].
-
-    One way of expressing this behavior is to add another parameter to
-    the evaluation relation that specifies whether evaluation of a
-    command executes a [break] statement: *)
-
-Inductive result : Type :=
-  | SContinue
-  | SBreak.
-
-Reserved Notation "st '=[' c ']=>' st' '/' s"
-     (at level 40, c custom com at level 99, st' constr at next level).
-
-(** Intuitively, [st =[ c ]=> st' / s] means that, if [c] is started in
-    state [st], then it terminates in state [st'] and either signals
-    that the innermost surrounding loop (or the whole program) should
-    exit immediately ([s = SBreak]) or that execution should continue
-    normally ([s = SContinue]).
-
-    The definition of the "[st =[ c ]=> st' / s]" relation is very
-    similar to the one we gave above for the regular evaluation
-    relation ([st =[ c ]=> st']) -- we just need to handle the
-    termination signals appropriately:
-
-    - If the command is [skip], then the state doesn't change and
-      execution of any enclosing loop can continue normally.
-
-    - If the command is [break], the state stays unchanged but we
-      signal a [SBreak].
-
-    - If the command is an assignment, then we update the binding for
-      that variable in the state accordingly and signal that execution
-      can continue normally.
-
-    - If the command is of the form [if b then c1 else c2 end], then
-      the state is updated as in the original semantics of Imp, except
-      that we also propagate the signal from the execution of
-      whichever branch was taken.
-
-    - If the command is a sequence [c1 ; c2], we first execute
-      [c1].  If this yields a [SBreak], we skip the execution of [c2]
-      and propagate the [SBreak] signal to the surrounding context;
-      the resulting state is the same as the one obtained by
-      executing [c1] alone. Otherwise, we execute [c2] on the state
-      obtained after executing [c1], and propagate the signal
-      generated there.
-
-    - Finally, for a loop of the form [while b do c end], the
-      semantics is almost the same as before. The only difference is
-      that, when [b] evaluates to true, we execute [c] and check the
-      signal that it raises.  If that signal is [SContinue], then the
-      execution proceeds as in the original semantics. Otherwise, we
-      stop the execution of the loop, and the resulting state is the
-      same as the one resulting from the execution of the current
-      iteration.  In either case, since [break] only terminates the
-      innermost loop, [while] signals [SContinue]. *)
-
-(** Based on the above description, complete the definition of the
-    [ceval] relation. *)
-
-Inductive ceval : com -> state -> result -> state -> Prop :=
-  | E_Skip : forall st,
-      st =[ CSkip ]=> st / SContinue
-  (* FILL IN HERE *)
-
-  where "st '=[' c ']=>' st' '/' s" := (ceval c st s st').
-
-(** Now prove the following properties of your definition of [ceval]: *)
-
-Theorem break_ignore : forall c st st' s,
-     st =[ break; c ]=> st' / s ->
-     st = st'.
-Proof.
-  (* FILL IN HERE *) Admitted.
-
-Theorem while_continue : forall b c st st' s,
-  st =[ while b do c end ]=> st' / s ->
-  s = SContinue.
-Proof.
-  (* FILL IN HERE *) Admitted.
-
-Theorem while_stops_on_break : forall b c st st',
-  beval st b = true ->
-  st =[ c ]=> st' / SBreak ->
-  st =[ while b do c end ]=> st' / SContinue.
-Proof.
-  (* FILL IN HERE *) Admitted.
-
-Theorem seq_continue : forall c1 c2 st st' st'',
-  st =[ c1 ]=> st' / SContinue ->
-  st' =[ c2 ]=> st'' / SContinue ->
-  st =[ c1 ; c2 ]=> st'' / SContinue.
-Proof.
-  (* FILL IN HERE *) Admitted.
-
-Theorem seq_stops_on_break : forall c1 c2 st st',
-  st =[ c1 ]=> st' / SBreak ->
-  st =[ c1 ; c2 ]=> st' / SBreak.
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
-(** **** Exercise: 3 stars, advanced, optional (while_break_true) *)
-Theorem while_break_true : forall b c st st',
-  st =[ while b do c end ]=> st' / SContinue ->
-  beval st' b = true ->
-  exists st'', st'' =[ c ]=> st' / SBreak.
-Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
-
-(** **** Exercise: 4 stars, advanced, optional (ceval_deterministic) *)
-Theorem ceval_deterministic: forall (c:com) st st1 st2 s1 s2,
-     st =[ c ]=> st1 / s1 ->
-     st =[ c ]=> st2 / s2 ->
-     st1 = st2 /\ s1 = s2.
-Proof.
-  (* FILL IN HERE *) Admitted.
-
-(** [] *)
-End BreakImp.
 
 (** **** Exercise: 4 stars, standard, optional (add_for_loop)
 
@@ -2028,4 +1779,4 @@ End BreakImp.
 
     [] *)
 
-(* 2023-06-15 13:16 *)
+(* 2023-06-26 21:48 *)

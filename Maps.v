@@ -4,11 +4,6 @@
     ordinary programming and in the theory of programming languages;
     we're going to need them in many places in the coming chapters.
 
-    They also make a nice case study using ideas we've seen in
-    previous chapters, including building data structures out of
-    higher-order functions (from [Basics] and [Poly]) and the use of
-    reflection to streamline proofs (from [IndProp]).
-
     We'll define two flavors of maps: _total_ maps, which include a
     "default" element to be returned when a key being looked up
     doesn't exist, and _partial_ maps, which instead return an
@@ -24,7 +19,8 @@ Require Export Coq.Strings.String.
 From Coq Require Import Logic.FunctionalExtensionality.
 From Coq Require Import Lists.List.
 Import ListNotations.
-Set Default Goal Selector "!".
+Set Default Goal Selector "!". (* If exactly one goal is in focus, apply
+                                  ltac_expr to it. Otherwise the tactic fails.*)
 
 (** Documentation for the standard library can be found at
     https://coq.inria.fr/library/.
@@ -60,8 +56,6 @@ Check String.eqb_eq :
   forall n m : string, (n =? m)%string = true <-> n = m.
 Check String.eqb_neq :
   forall n m : string, (n =? m)%string = false <-> n <> m.
-Check String.eqb_spec :
-  forall x y : string, reflect (x = y) (String.eqb x y).
 
 (* ################################################################# *)
 (** * Total Maps *)
@@ -213,39 +207,6 @@ Proof.
   (* FILL IN HERE *) Admitted.
 (** [] *)
 
-(** **** Exercise: 2 stars, standard (t_update_same)
-
-    Given [string]s [x1] and [x2], we can use the tactic
-    [destruct (eqb_spec x1 x2)] to simultaneously perform case
-    analysis on the result of [String.eqb x1 x2] and generate
-    hypotheses about the equality (in the sense of [=]) of [x1] and
-    [x2]. Use [String.eqb_spec] to prove the following theorem, which states
-    that if we update a map to assign key [x] the same value as it
-    already has in [m], then the result is equal to [m]: *)
-
-Theorem t_update_same : forall (A : Type) (m : total_map A) x,
-  (x !-> m x ; m) = m.
-Proof.
-  intros A m x1. apply functional_extensionality. intros x2.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
-(** **** Exercise: 3 stars, standard, especially useful (t_update_permute)
-
-    Similarly, use [String.eqb_spec] to prove one final property of
-    the [update] function: If we update a map [m] at two distinct
-    keys, it doesn't matter in which order we do the updates. *)
-
-Theorem t_update_permute : forall (A : Type) (m : total_map A)
-                                  v1 v2 x1 x2,
-  x2 <> x1 ->
-  (x1 !-> v1 ; x2 !-> v2 ; m)
-  =
-  (x2 !-> v2 ; x1 !-> v1 ; m).
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
 (* ################################################################# *)
 (** * Partial maps *)
 
@@ -273,88 +234,4 @@ Notation "x '|->' v" := (update empty x v)
 Definition examplepmap :=
   ("Church" |-> true ; "Turing" |-> false).
 
-(** We now straightforwardly lift all of the basic lemmas about total
-    maps to partial maps.  *)
-
-Lemma apply_empty : forall (A : Type) (x : string),
-  @empty A x = None.
-Proof.
-  intros. unfold empty. rewrite t_apply_empty.
-  reflexivity.
-Qed.
-
-Lemma update_eq : forall (A : Type) (m : partial_map A) x v,
-  (x |-> v ; m) x = Some v.
-Proof.
-  intros. unfold update. rewrite t_update_eq.
-  reflexivity.
-Qed.
-
-Theorem update_neq : forall (A : Type) (m : partial_map A) x1 x2 v,
-  x2 <> x1 ->
-  (x2 |-> v ; m) x1 = m x1.
-Proof.
-  intros A m x1 x2 v H.
-  unfold update. rewrite t_update_neq.
-  - reflexivity.
-  - apply H.
-Qed.
-
-Lemma update_shadow : forall (A : Type) (m : partial_map A) x v1 v2,
-  (x |-> v2 ; x |-> v1 ; m) = (x |-> v2 ; m).
-Proof.
-  intros A m x v1 v2. unfold update. rewrite t_update_shadow.
-  reflexivity.
-Qed.
-
-Theorem update_same : forall (A : Type) (m : partial_map A) x v,
-  m x = Some v ->
-  (x |-> v ; m) = m.
-Proof.
-  intros A m x v H. unfold update. rewrite <- H.
-  apply t_update_same.
-Qed.
-
-Theorem update_permute : forall (A : Type) (m : partial_map A)
-                                x1 x2 v1 v2,
-  x2 <> x1 ->
-  (x1 |-> v1 ; x2 |-> v2 ; m) = (x2 |-> v2 ; x1 |-> v1 ; m).
-Proof.
-  intros A m x1 x2 v1 v2. unfold update.
-  apply t_update_permute.
-Qed.
-
-(** One last thing: For partial maps, it's convenient to introduce a
-    notion of map inclusion, stating that all the entries in one map
-    are also present in another: *)
-
-Definition includedin {A : Type} (m m' : partial_map A) :=
-  forall x v, m x = Some v -> m' x = Some v.
-
-(** We can then show that map update preserves map inclusion -- that is: *)
-
-Lemma includedin_update : forall (A : Type) (m m' : partial_map A)
-                                 (x : string) (vx : A),
-  includedin m m' ->
-  includedin (x |-> vx ; m) (x |-> vx ; m').
-Proof.
-  unfold includedin.
-  intros A m m' x vx H.
-  intros y vy.
-  destruct (eqb_spec x y) as [Hxy | Hxy].
-  - rewrite Hxy.
-    rewrite update_eq. rewrite update_eq. intro H1. apply H1.
-  - rewrite update_neq.
-    + rewrite update_neq.
-      * apply H.
-      * apply Hxy.
-    + apply Hxy.
-Qed.
-
-(** This property is quite useful for reasoning about languages with
-    variable binding -- e.g., the Simply Typed Lambda Calculus, which
-    we will see in _Programming Language Foundations_, where maps are
-    used to keep track of which program variables are defined in a
-    given scope. *)
-
-(* 2023-06-15 13:16 *)
+(* 2023-06-26 21:16 *)
