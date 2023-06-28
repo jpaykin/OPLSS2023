@@ -1,14 +1,5 @@
 (** * Maps: Total and Partial Maps *)
 
-(** _Maps_ (or _dictionaries_) are ubiquitous data structures both in
-    ordinary programming and in the theory of programming languages;
-    we're going to need them in many places in the coming chapters.
-
-    We'll define two flavors of maps: _total_ maps, which include a
-    "default" element to be returned when a key being looked up
-    doesn't exist, and _partial_ maps, which instead return an
-    [option] to indicate success or failure.  The latter is defined in
-    terms of the former, using [None] as the default element. *)
 
 (* ################################################################# *)
 (** * The Coq Standard Library *)
@@ -48,14 +39,68 @@ Print Init.Nat.add.
 (** To compare strings, we use the function [eqb] from the [String]
     module in the standard library. *)
 
+Check String.eqb.
 Check String.eqb_refl :
   forall x : string, (x =? x)%string = true.
+
+
+(** We've seen two different ways of expressing logical claims in Coq:
+    with _booleans_ (of type [bool]), and with _propositions_ (of type
+    [Prop]).
+
+Here are the key differences between [bool] and [Prop]:
+
+                                       bool     Prop
+                                       ====     ====
+       decidable?                      yes       no
+       useable with match?             yes       no
+       equalities rewritable?          no        yes
+*)
+
+(** The most essential difference between the two worlds is
+_decidability_.  Every Coq expression of type [bool] can be
+simplified in a finite number of steps to either [true] or
+[false] -- i.e., there is a terminating mechanical procedure for
+deciding whether or not it is [true].  This means that, for
+example, the type [nat -> bool] is inhabited only by functions
+that, given a [nat], always return either [true] or [false]; and
+this, in turn, means that there is no function in [nat -> bool]
+that checks whether a given number is the code of a terminating
+Turing machine.  By contrast, the type [Prop] includes both
+decidable and undecidable mathematical propositions; in
+particular, the type [nat -> Prop] does contain functions
+representing properties like "the nth Turing machine halts."
+
+The second row in the table above follow directly from this
+essential difference.  To evaluate a pattern match (or
+conditional) on a boolean, we need to know whether the scrutinee
+evaluates to [true] or [false]; this only works for [bool], not
+[Prop].  The third row highlights another important practical
+difference: equality functions like [eqb_nat] that return a
+boolean cannot be used directly to justify rewriting, whereas
+the propositional [eq] can be. *)
 
 (** We will often use a few basic properties of string equality... *)
 Check String.eqb_eq :
   forall n m : string, (n =? m)%string = true <-> n = m.
 Check String.eqb_neq :
   forall n m : string, (n =? m)%string = false <-> n <> m.
+
+
+Lemma string_eqb_dec : forall n m : string, n = m \/ n <> m.
+      (* This is the law of excluded middle applied to strings---not necessarily
+         true for other types! *)
+Proof.
+    intros m n.
+    set (b := (m =? n)%string).
+    destruct b eqn:Hb.
+    * (* b = true *)
+      left.
+      apply String.eqb_eq. exact Hb.
+    * (* b = false *)
+      right.
+      apply String.eqb_neq. exact Hb.
+Qed.
 
 (* ################################################################# *)
 (** * Total Maps *)
@@ -71,9 +116,6 @@ Check String.eqb_neq :
     "equivalent" list structures.  This, in turn, simplifies proofs
     that use maps. *)
 
-(** We build up to partial maps in two steps.  First, we define a type
-    of _total maps_ that return a default value when we look up a key
-    that is not present in the map. *)
 
 Definition total_map (A : Type) := string -> A.
 
@@ -148,6 +190,127 @@ Proof. reflexivity. Qed.
 Example update_example4 : examplemap' "bar" = true.
 Proof. reflexivity. Qed.
 
+
+(* ================================================================= *)
+(** ** Functional Extensionality *)
+
+(** How do we reason about whether two maps are the same? 
+
+    Coq's logic is intentionally quite minimal.  This means that there
+    are occasionally some cases where translating standard
+    mathematical reasoning into Coq can be cumbersome or even
+    impossible, unless we enrich the core logic with additional
+    axioms. *)
+
+(** For example, we can write an equality proposition stating
+    that two total maps are equal to each other, but we cannot
+    prove it by reflexivity. *)
+
+    Example function_equality_ex1 :
+    ( "bar" !-> false; _ !-> false )
+    =
+    ( _ !-> false).
+  Proof. try reflexivity. Abort.
+  
+  (** In common mathematical practice, two functions [f] and [g] are
+      considered equal if they produce the same output on every input:
+  
+      (forall x, f x = g x) -> f = g
+  
+      This is known as the principle of _functional extensionality_. *)
+  
+  (** However, functional extensionality is not part of Coq's built-in
+      logic.  This means that some apparently "obvious" propositions are
+      not provable.
+      
+      However, if we like, we can add functional extensionality to Coq's
+      core using the [Axiom] command. *)
+  
+  Axiom functional_extensionality : forall {X Y: Type}
+                                      {f g : X -> Y},
+    (forall (x:X), f x = g x) -> f = g.
+  
+  (** Defining something as an [Axiom] has the same effect as stating a
+      theorem and skipping its proof using [Admitted], but it alerts the
+      reader that this isn't just something we're going to come back and
+      fill in later! *)
+  
+
+
+
+
+
+
+  (** We can now invoke functional extensionality in proofs: *)
+  
+
+  Example function_equality_ex :
+    ( "bar" !-> false; _ !-> false )
+    =
+    ( _ !-> false).
+  Proof.
+    apply functional_extensionality.
+    intros x.
+    unfold t_update.
+    unfold t_empty.
+    set (b := ("bar" =? x)%string).
+    destruct b.
+    * reflexivity.
+    * reflexivity.
+  Qed.
+  
+  (** Naturally, we must be careful when adding new axioms into Coq's
+      logic, as this can render it _inconsistent_ -- that is, it may
+      become possible to prove every proposition, including [False],
+      [2+2=5], etc.!
+  
+      Unfortunately, there is no simple way of telling whether an axiom
+      is safe to add: hard work by highly trained mathematicians is
+      often required to establish the consistency of any particular
+      combination of axioms.
+  
+      Fortunately, it is known that adding functional extensionality, in
+      particular, _is_ consistent. *)
+  
+  (** To check whether a particular proof relies on any additional
+      axioms, use the [Print Assumptions] command: *)
+  Print Assumptions function_equality_ex.
+  
+  
+  (** **** Exercise: 4 stars, standard (tr_rev_correct)
+  
+      One problem with the definition of the list-reversing function
+      [rev] that we have is that it performs a call to [app] on each
+      step; running [app] takes time asymptotically linear in the size
+      of the list, which means that [rev] is asymptotically quadratic.
+      We can improve this with the following definitions: *)
+  
+  Fixpoint rev_append {X} (l1 l2 : list X) : list X :=
+    match l1 with
+    | [] => l2
+    | x :: l1' => rev_append l1' (x :: l2)
+    end.
+  
+  Definition tr_rev {X} (l : list X) : list X :=
+    rev_append l [].
+  
+  (** This version of [rev] is said to be _tail-recursive_, because the
+      recursive call to the function is the last operation that needs to
+      be performed (i.e., we don't have to execute [++] after the
+      recursive call); a decent compiler will generate very efficient
+      code in this case.
+  
+      Prove that the two definitions are indeed equivalent. *)
+  
+  Theorem tr_rev_correct : forall X, @tr_rev X = @rev X.
+  Proof.
+  (* FILL IN HERE *) Admitted.
+  (** [] *)
+
+
+(* ================================================================= *)
+(** ** Map facts *)
+
 (** When we use maps in later chapters, we'll need several fundamental
     facts about how they behave. *)
 
@@ -206,32 +369,5 @@ Lemma t_update_shadow : forall (A : Type) (m : total_map A) x v1 v2,
 Proof.
   (* FILL IN HERE *) Admitted.
 (** [] *)
-
-(* ################################################################# *)
-(** * Partial maps *)
-
-(** Lastly, we define _partial maps_ on top of total maps.  A partial
-    map with elements of type [A] is simply a total map with elements
-    of type [option A] and default element [None]. *)
-
-Definition partial_map (A : Type) := total_map (option A).
-
-Definition empty {A : Type} : partial_map A :=
-  t_empty None.
-
-Definition update {A : Type} (m : partial_map A)
-           (x : string) (v : A) :=
-  (x !-> Some v ; m).
-
-(** We introduce a similar notation for partial maps: *)
-Notation "x '|->' v ';' m" := (update m x v)
-  (at level 100, v at next level, right associativity).
-
-(** We can also hide the last case when it is empty. *)
-Notation "x '|->' v" := (update empty x v)
-  (at level 100).
-
-Definition examplepmap :=
-  ("Church" |-> true ; "Turing" |-> false).
 
 (* 2023-06-26 21:16 *)
